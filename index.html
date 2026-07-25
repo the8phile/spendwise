@@ -1732,6 +1732,32 @@ const SUPABASE_URL  = 'https://rjnsnodvqwwhkxbznzqa.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_YEpzMipxj0H2UQZjM6c81g_qATqgjNS';
 const _supa         = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// authSignIn/authSignUp — these are called from the login/signup flow but were
+// missing from the app entirely. Their absence caused a ReferenceError the
+// instant anyone tried to sign in or sign up with cloud sync, which — since
+// nothing in the calling code caught it — left the "Please wait…" button
+// stuck forever and silently prevented ANY row from ever reaching Supabase.
+async function authSignIn(email, pw) {
+  try {
+    const { data, error } = await _supa.auth.signInWithPassword({ email, password: pw });
+    if (error) return { error: error.message, user: null };
+    return { error: null, user: data.user };
+  } catch (e) {
+    return { error: e.message || 'Sign-in failed', user: null };
+  }
+}
+async function authSignUp(email, pw, name) {
+  try {
+    const { data, error } = await _supa.auth.signUp({
+      email, password: pw, options: { data: { name } }
+    });
+    if (error) return { error: error.message, user: null };
+    return { error: null, user: data.user };
+  } catch (e) {
+    return { error: e.message || 'Sign-up failed', user: null };
+  }
+}
+
 // ── Supabase DB helpers ──────────────────────────────────────────────────────
 
 /** Save one expense to Supabase (called after localStorage save) */
@@ -6162,6 +6188,18 @@ async function agDoLogin(){
   if(!email){agShowError('Please enter your email address.');return;}
   if(!pw){agShowError('Please enter your password.');return;}
   agSetLoading('ag-login-btn',true);
+  try{
+    await agDoLoginInner(email,pw);
+  }catch(e){
+    console.error('[Auth] Unexpected error during login:',e);
+    agShowError('Something went wrong. Please try again.');
+  }finally{
+    // Safety net: no matter what happens above (including bugs we haven't
+    // found yet), the button must never get stuck on "Please wait…" forever.
+    agSetLoading('ag-login-btn',false,'Login');
+  }
+}
+async function agDoLoginInner(email,pw){
 
   // Step 1: Local check (always works on file://)
   var local=await agVerifyLocalAccount(email,pw);
