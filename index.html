@@ -1004,11 +1004,8 @@ button,input,select,textarea{font-family:'Sora',sans-serif;transition:background
    WELCOME CHIP
 ════════════════════════════════════ */
 .welcome-chip{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 10px;border-radius:20px;
-  font-size:12px;font-weight:700;letter-spacing:-.1px;
-  background:var(--accent-bg);color:var(--accent);
-  border:1px solid var(--accent-bd);
+  display:block;font-size:11px;font-weight:600;letter-spacing:.01em;
+  color:var(--text3);margin-bottom:2px;
 }
 .welcome-chip:empty{display:none}
 
@@ -1264,6 +1261,8 @@ button,input,select,textarea{font-family:'Sora',sans-serif;transition:background
   .page-sub{display:none}
   .tb-btn{width:32px;height:32px;font-size:13px}
   .topbar-right .btn-add{display:none} /* fab replaces it */
+  #net-status-dot{display:none} /* moved to Settings on mobile */
+  .theme-toggle{display:none}   /* moved to Settings on mobile */
 
   /* Content: leave room for bottom nav + safe area */
   .content{padding:14px 14px 104px;-webkit-overflow-scrolling:touch}
@@ -1989,14 +1988,12 @@ async function supabaseInit() {
 <div class="main">
   <header class="topbar">
     <div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="page-title" id="pt">Dashboard</div>
-        <span class="welcome-chip" id="welcome-name-chip"></span>
-      </div>
+      <span class="welcome-chip" id="welcome-name-chip"></span>
+      <div class="page-title" id="pt">Dashboard</div>
       <div class="page-sub" id="ps">Welcome back — here's your financial overview</div>
     </div>
     <div class="topbar-right">
-      <!-- Network status dot -->
+      <!-- Network status dot — desktop only, see settings for mobile -->
       <div id="net-status-dot" title="Network status" style="
         display:flex;align-items:center;gap:6px;
         padding:5px 10px;border-radius:20px;
@@ -3007,6 +3004,11 @@ async function supabaseInit() {
       <button class="ob-currency-btn set-currency-btn" data-currency="GHS" onclick="document.querySelectorAll('.set-currency-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected')">
         <span class="ob-cur-symbol">₵</span><span class="ob-cur-name">GHS</span>
       </button>
+    </div>
+    <label class="f-label" style="display:block;margin-bottom:10px">Appearance</label>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+      <span style="font-size:13px;color:var(--text2)">Light / dark mode</span>
+      <button class="tb-btn" id="theme-toggle-btn-settings" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn-primary" onclick="saveSettings()">Save changes</button>
@@ -5962,6 +5964,8 @@ function applyTheme(theme, animate) {
 
   var btn = document.getElementById('theme-toggle-btn');
   if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+  var btnS = document.getElementById('theme-toggle-btn-settings');
+  if (btnS) btnS.textContent = theme === 'light' ? '🌙' : '☀️';
 
   // Update <meta theme-color> for mobile browser chrome
   var meta = document.querySelector('meta[name="theme-color"]');
@@ -6091,7 +6095,7 @@ function updateGreeting() {
 
   // Topbar welcome chip
   var chip = document.getElementById('welcome-name-chip');
-  if (chip) chip.textContent = name;
+  if (chip) chip.textContent = 'Hi, ' + name;
 }
 
 document.getElementById('f-date').value = today();
