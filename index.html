@@ -273,6 +273,11 @@ button,input,select,textarea{font-family:'Sora',sans-serif;transition:background
 .tx-meta{font-size:11.5px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dot3{width:3px;height:3px;border-radius:50%;background:var(--text3);flex-shrink:0}
 .recur-badge{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px;background:var(--purple-bg);color:var(--purple);border:1px solid rgba(162,155,254,.25);letter-spacing:.03em}
+.tx-method-badge{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px;letter-spacing:.03em}
+.tx-method-badge.momo{background:rgba(255,204,0,.14);color:#a67c00;border:1px solid rgba(255,204,0,.35)}
+[data-theme="dark"] .tx-method-badge.momo{color:#ffcc00}
+.tx-method-badge.orange{background:rgba(255,102,0,.14);color:#cc5200;border:1px solid rgba(255,102,0,.35)}
+[data-theme="dark"] .tx-method-badge.orange{color:#ff8533}
 .tx-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
 .tx-amount{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-.3px}
 .tx-amount.out{color:var(--text1)}.tx-amount.in{color:var(--accent)}
@@ -329,6 +334,17 @@ button,input,select,textarea{font-family:'Sora',sans-serif;transition:background
 .freq-btn{padding:8px 6px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;text-align:center;transition:all .15s}
 .freq-btn:hover{border-color:var(--border2);color:var(--text1)}
 .freq-btn.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd)}
+
+/* ── Payment method selector ── */
+.method-select{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.method-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 6px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;text-align:center;transition:all .15s;font-family:'Sora',sans-serif}
+.method-btn:hover{border-color:var(--border2);color:var(--text1)}
+.method-btn.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd)}
+.method-btn[data-method="momo"].active{background:rgba(255,204,0,.14);color:#a67c00;border-color:rgba(255,204,0,.4)}
+[data-theme="dark"] .method-btn[data-method="momo"].active{color:#ffcc00}
+.method-btn[data-method="orange"].active{background:rgba(255,102,0,.14);color:#cc5200;border-color:rgba(255,102,0,.4)}
+[data-theme="dark"] .method-btn[data-method="orange"].active{color:#ff8533}
+@media(max-width:480px){.method-select{grid-template-columns:1fr;}}
 
 /* ── Quick add presets ── */
 .quick-grid{display:flex;flex-wrap:wrap;gap:7px}
@@ -1792,6 +1808,7 @@ async function supabaseSaveExpense(exp) {
       recur:      exp.recur || false,
       freq:       exp.freq  || '',
       note:       exp.note  || '',
+      method:     exp.method || 'cash',
       offline_id: exp.id,
       synced_at:  new Date().toISOString(),
     }, { onConflict: 'offline_id,user_id', ignoreDuplicates: false });
@@ -1844,6 +1861,7 @@ async function supabaseLoadExpenses() {
           recur: row.recur,
           freq:  row.freq,
           note:  row.note,
+          method:row.method || 'cash',
         });
         added++;
       }
@@ -2137,15 +2155,24 @@ async function supabaseInit() {
               <div class="card-title">New Transaction</div>
               <div class="card-sub">Fill in the details below</div>
             </div>
-            <!-- Receipt scanner button -->
-            <button id="scan-receipt-btn" onclick="openReceiptScanner()"
-              style="display:flex;align-items:center;gap:7px;padding:9px 14px;
-                background:linear-gradient(135deg,#6D28D9,#8B5CF6);color:#fff;
-                border:none;border-radius:12px;font-size:13px;font-weight:700;
-                cursor:pointer;font-family:'Sora',sans-serif;flex-shrink:0;
-                box-shadow:0 3px 12px rgba(139,92,246,.35);transition:all .2s">
-              <i class="ti ti-camera" aria-hidden="true"></i> Scan Receipt
-            </button>
+            <!-- Receipt scanner + Mobile Money paste buttons -->
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button id="momo-paste-btn" onclick="openMomoParser()"
+                style="display:flex;align-items:center;gap:7px;padding:9px 14px;
+                  background:var(--bg3);border:1px solid var(--border);color:var(--text1);
+                  border-radius:12px;font-size:13px;font-weight:700;
+                  cursor:pointer;font-family:'Sora',sans-serif;transition:all .2s">
+                <i class="ti ti-device-mobile-message" aria-hidden="true"></i> Paste MoMo SMS
+              </button>
+              <button id="scan-receipt-btn" onclick="openReceiptScanner()"
+                style="display:flex;align-items:center;gap:7px;padding:9px 14px;
+                  background:linear-gradient(135deg,#6D28D9,#8B5CF6);color:#fff;
+                  border:none;border-radius:12px;font-size:13px;font-weight:700;
+                  cursor:pointer;font-family:'Sora',sans-serif;
+                  box-shadow:0 3px 12px rgba(139,92,246,.35);transition:all .2s">
+                <i class="ti ti-camera" aria-hidden="true"></i> Scan Receipt
+              </button>
+            </div>
           </div>
 
           <div class="form-section">
@@ -2194,6 +2221,20 @@ async function supabaseInit() {
                   <option value="out">Expense</option>
                   <option value="in">Income</option>
                 </select>
+              </div>
+              <div class="fg-full">
+                <label class="f-label">Payment method</label>
+                <div class="method-select" id="method-select">
+                  <button type="button" class="method-btn active" data-method="cash" onclick="setPaymentMethod(this)">
+                    <i class="ti ti-cash" aria-hidden="true"></i> Cash
+                  </button>
+                  <button type="button" class="method-btn" data-method="momo" onclick="setPaymentMethod(this)">
+                    <i class="ti ti-device-mobile" aria-hidden="true"></i> MTN MoMo
+                  </button>
+                  <button type="button" class="method-btn" data-method="orange" onclick="setPaymentMethod(this)">
+                    <i class="ti ti-device-mobile" aria-hidden="true"></i> Orange Money
+                  </button>
+                </div>
               </div>
               <div class="fg-full">
                 <label class="f-label">Notes (optional)</label>
@@ -2434,6 +2475,62 @@ async function supabaseInit() {
 .receipt-row .rr-label{color:var(--text3);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
 .receipt-row .rr-value{color:var(--text1);font-weight:700;text-align:right;max-width:60%}
 </style>
+
+<!-- ═══ MOBILE MONEY SMS PARSER MODAL ═══ -->
+<div id="momo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:3000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:22px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--text1)"><i class="ti ti-device-mobile-message" aria-hidden="true"></i> Mobile Money SMS</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">Paste the confirmation text you received</div>
+      </div>
+      <button onclick="closeMomoParser()"
+        style="width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);cursor:pointer;color:var(--text2);font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <div style="padding:20px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Copy the SMS from MTN MoMo or Orange Money after a transaction, then paste it below. This is a best-effort reader — always check the amount and details before saving.
+      </div>
+
+      <label class="f-label">Paste SMS text</label>
+      <textarea id="momo-sms-input" class="f-textarea" style="min-height:100px"
+        placeholder="e.g. You have received XAF 5,000 from CHEUMANI JEAN on 24/07/26. New balance: XAF 32,450."></textarea>
+
+      <!-- Status area -->
+      <div id="momo-status" style="display:none;margin-top:12px;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:600"></div>
+
+      <!-- Extracted data preview -->
+      <div id="momo-result" style="display:none;margin-top:14px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Found in message</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+          <div class="receipt-row" id="mr-provider"></div>
+          <div class="receipt-row" id="mr-type"></div>
+          <div class="receipt-row" id="mr-amount"></div>
+          <div class="receipt-row" id="mr-name"></div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div style="margin-top:18px;display:flex;gap:10px">
+        <button id="momo-parse-btn" onclick="parseMomoSms()"
+          style="flex:1;padding:14px;background:linear-gradient(135deg,#6D28D9,#8B5CF6);color:#fff;border:none;border-radius:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Sora',sans-serif;transition:all .2s">
+          <i class="ti ti-scan" aria-hidden="true"></i> Read Message
+        </button>
+        <button id="momo-fill-btn" onclick="fillFormFromMomo()"
+          style="flex:1;padding:14px;background:var(--accent);color:#0f1117;border:none;border-radius:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Sora',sans-serif;display:none;transition:all .2s">
+          <i class="ti ti-check" aria-hidden="true"></i> Fill Form
+        </button>
+        <button onclick="closeMomoParser()"
+          style="padding:14px 18px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- ══════════════════ CATEGORIES ══════════════════ -->
     <div id="p-categories" class="page">
@@ -3117,6 +3214,7 @@ try { categories = JSON.parse(localStorage.getItem(getUserCatKey())  || 'null') 
 
 let selEmoji = '📦', selColor = '#8B5CF6', editingCatId = null;
 let recurFreq = 'monthly';
+let paymentMethod = 'cash';
 let wChart=null, cChart=null, tChart=null;
 
 function save() {
@@ -3243,6 +3341,11 @@ function setFreq(btn) {
   btn.classList.add('active');
   recurFreq = btn.dataset.freq;
 }
+function setPaymentMethod(btn) {
+  document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  paymentMethod = btn.dataset.method;
+}
 
 // Monotonic ID generator — Date.now() alone can collide when multiple
 // expenses are added within the same millisecond (fast quick-add taps,
@@ -3264,6 +3367,7 @@ function addExpense() {
   const note   = escHtml(document.getElementById('f-note').value.trim());
   const recur  = document.getElementById('f-recur').checked;
   const freq   = recur ? recurFreq : '';
+  const method = paymentMethod;
   const errEl  = document.getElementById('f-err');
   if (!name || isNaN(amount) || amount <= 0) {
     errEl.textContent = '⚠ Please enter a description and a valid amount.';
@@ -3271,7 +3375,7 @@ function addExpense() {
     setTimeout(() => errEl.style.display='none', 3000);
     return;
   }
-  expenses.push({id:nextExpId(), name, amount, date, cat, type, recur, freq, note});
+  expenses.push({id:nextExpId(), name, amount, date, cat, type, recur, freq, note, method});
   save(); clearForm();
   syncBadges();
   runDetector();
@@ -3307,6 +3411,8 @@ function clearForm() {
   document.getElementById('f-type').value   = 'out';
   const cb = document.getElementById('f-recur');
   cb.checked = false; toggleRecur(cb);
+  paymentMethod = 'cash';
+  document.querySelectorAll('.method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === 'cash'));
 }
 
 function delExp(id) {
@@ -3340,6 +3446,8 @@ function txCard(e, showDel=true) {
       <div class="tx-name">
         ${e.name}
         ${e.recur ? `<span class="recur-badge">↻ ${e.freq}</span>` : ``}
+        ${e.method === 'momo' ? `<span class="tx-method-badge momo">MoMo</span>` : ``}
+        ${e.method === 'orange' ? `<span class="tx-method-badge orange">Orange</span>` : ``}
       </div>
       <div class="tx-meta">
         <span>${c.label}</span>
@@ -6538,6 +6646,127 @@ function openReceiptScanner() {
 
 function closeReceiptScanner() {
   document.getElementById('receipt-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MOBILE MONEY SMS PARSER
+//  Best-effort text parser for MTN MoMo / Orange Money confirmation SMS.
+//  There's no way for a website to read a phone's SMS inbox directly, so this
+//  works on pasted text instead — the user copies the confirmation message
+//  they already received and pastes it here. Always shows a review step
+//  before filling the form, since real SMS wording varies by carrier/language
+//  and this can't guarantee a perfect read.
+// ═══════════════════════════════════════════════════════════════════════════
+var _momoParsed = null;
+
+function openMomoParser() {
+  _momoParsed = null;
+  document.getElementById('momo-modal').style.display = 'flex';
+  document.getElementById('momo-sms-input').value = '';
+  document.getElementById('momo-status').style.display = 'none';
+  document.getElementById('momo-result').style.display = 'none';
+  document.getElementById('momo-fill-btn').style.display = 'none';
+}
+
+function closeMomoParser() {
+  document.getElementById('momo-modal').style.display = 'none';
+}
+
+function showMomoStatus(type, msg) {
+  var el = document.getElementById('momo-status');
+  el.textContent = msg;
+  el.style.display = '';
+  if (type === 'error') {
+    el.style.background = 'rgba(239,68,68,.1)';
+    el.style.border     = '1px solid rgba(239,68,68,.3)';
+    el.style.color      = 'var(--red)';
+  } else {
+    el.style.background = 'rgba(139,92,246,.08)';
+    el.style.border     = '1px solid rgba(139,92,246,.3)';
+    el.style.color      = 'var(--accent)';
+  }
+}
+
+function parseMomoSms() {
+  var text = document.getElementById('momo-sms-input').value.trim();
+  document.getElementById('momo-result').style.display   = 'none';
+  document.getElementById('momo-fill-btn').style.display = 'none';
+  if (!text) { showMomoStatus('error', 'Paste the SMS text first.'); return; }
+
+  var lower  = text.toLowerCase();
+  var result = { provider: 'Mobile Money', method: 'momo', type: 'out', amount: null, name: '' };
+
+  if (/orange/.test(lower)) { result.provider = 'Orange Money'; result.method = 'orange'; }
+  else if (/mtn|momo/.test(lower)) { result.provider = 'MTN MoMo'; result.method = 'momo'; }
+
+  // Amount — scan every "number next to XAF/FCFA" in the message (there's
+  // often more than one: the amount, a fee, a new balance), then skip any
+  // match whose preceding text mentions a fee/balance, and take the first
+  // one left. Real message templates state the actual amount before those.
+  var amtRe = /(\d[\d.,\s]*\d|\d)\s*(?:XAF|FCFA|F\s?CFA)|(?:XAF|FCFA|F\s?CFA)\s*[:\-]?\s*(\d[\d.,\s]*\d|\d)/gi;
+  var candidates = [], m;
+  while ((m = amtRe.exec(text)) !== null) {
+    var raw = (m[1] || m[2] || '').replace(/[.,\s]/g, '');
+    var num = parseInt(raw, 10);
+    if (!isNaN(num) && num > 0) {
+      var pre = text.slice(Math.max(0, m.index - 20), m.index).toLowerCase();
+      candidates.push({ num: num, isFeeOrBalance: /fee|frais|balance|solde/.test(pre) });
+    }
+  }
+  var nonFeeCandidates = candidates.filter(function(c) { return !c.isFeeOrBalance; });
+  var chosen = (nonFeeCandidates.length ? nonFeeCandidates : candidates)[0];
+  if (chosen) result.amount = chosen.num;
+
+  if (/re[cç]u|received|encaiss[ée]/.test(lower)) result.type = 'in';
+  else if (/envoy[ée]|sent|paid|payment|paiement|achat|purchase|retrait|withdraw/.test(lower)) result.type = 'out';
+
+  // Counterparty name — 1 to 4 capitalized words following from/de/par/to/à.
+  // Requiring each word to start uppercase naturally stops at the first
+  // lowercase sentence word, so it doesn't run on into "...was successful".
+  var nameWord = "[A-ZÀ-Ý][A-Za-zÀ-ÿ'\u2019\\-]*";
+  var nameRe   = '(' + nameWord + '(?:\\s+' + nameWord + '){0,3})';
+  var noise    = '(?!XAF|FCFA|MTN|MOMO)';
+  var nameMatch = text.match(new RegExp('(?:from|de|par)\\s+' + noise + nameRe))
+               || text.match(new RegExp('(?:to|à)\\s+' + noise + nameRe));
+  if (nameMatch) result.name = nameMatch[1].trim();
+
+  if (!result.amount) {
+    showMomoStatus('error', "Couldn't find an amount in that message — you can still fill the form manually.");
+    return;
+  }
+
+  _momoParsed = result;
+  showMomoStatus('success', 'Message read — check the details below, then tap "Fill Form".');
+
+  function setRow(id, label, value) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '<span class="rr-label">' + escHtml(label) + '</span><span class="rr-value">' + escHtml(value || '—') + '</span>';
+  }
+  var currency = (USER_PROFILE && USER_PROFILE.currency) || 'FCFA';
+  setRow('mr-provider', 'Provider', result.provider);
+  setRow('mr-type', 'Type', result.type === 'in' ? 'Money received' : 'Payment sent');
+  setRow('mr-amount', 'Amount', currency + ' ' + result.amount.toLocaleString());
+  setRow('mr-name', result.type === 'in' ? 'From' : 'To', result.name || '—');
+
+  document.getElementById('momo-result').style.display = 'block';
+  document.getElementById('momo-fill-btn').style.display = '';
+}
+
+function fillFormFromMomo() {
+  if (!_momoParsed) return;
+  var r = _momoParsed;
+  document.getElementById('f-amount').value = r.amount;
+  document.getElementById('f-name').value = r.name
+    ? (r.type === 'in' ? 'Received from ' + r.name : 'Payment to ' + r.name)
+    : (r.provider + ' ' + (r.type === 'in' ? 'deposit' : 'payment'));
+  document.getElementById('f-type').value = r.type;
+  document.getElementById('f-note').value = 'Imported from ' + r.provider + ' SMS';
+  paymentMethod = r.method;
+  document.querySelectorAll('.method-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.method === r.method);
+  });
+  closeMomoParser();
+  toast(r.provider + ' details filled in — review and save.');
 }
 
 function handleReceiptFile(input) {
